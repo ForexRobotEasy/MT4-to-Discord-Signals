@@ -1,0 +1,149 @@
+mql5
+//+------------------------------------------------------------------+
+//|                 MT4 to Discord Signals                            |
+//|                                                                  |
+//|   Developer's Site: forexroboteasy.com                            |
+//|   Development: Forex Robot Easy Team                              |
+//|                                                                  |
+//|   This program links a brokerage account with Discord for         |
+//|   seamless trading notifications and enhanced trading experience. |
+//+------------------------------------------------------------------+
+
+// Define global variables
+string discordChannel;
+string discordWebhook;
+bool sendScreenshot;
+
+//+------------------------------------------------------------------+
+//|                     Set Discord Channel                           |
+//+------------------------------------------------------------------+
+void SetDiscordChannel(string channel, string webhook)
+{
+   discordChannel = channel;
+   discordWebhook = webhook;
+}
+
+//+------------------------------------------------------------------+
+//|                  Send Trading Notifications                       |
+//+------------------------------------------------------------------+
+void SendNotification(string message)
+{
+   // Send notification to Discord channel
+   WebRequest request;
+   request.Initialize(WebRequestMode.POST, discordWebhook);
+   request.AddHeader('Content-Type', 'application/json');
+   
+   // Construct JSON payload
+   string payload = '{\'content\':\'' + message + '\'}';
+   request.AddData(payload, StringLen(payload));
+   
+   // Send request
+   request.Send();
+}
+
+//+------------------------------------------------------------------+
+//|                    Capture Screenshot                             |
+//+------------------------------------------------------------------+
+void CaptureScreenshot()
+{
+   // Capture and save screenshot
+   ObjectCreate(0, 'screenshot', OBJ_BITMAP, 0, 0, 0);
+   ObjectSetInteger(0, 'screenshot', OBJPROP_WIDTH, 800);
+   ObjectSetInteger(0, 'screenshot', OBJPROP_HEIGHT, 600);
+   ChartRedraw(0);
+   ObjectSave('screenshot', 'screenshot.bmp');
+   
+   // Send screenshot to Discord channel
+   WebRequest request;
+   request.Initialize(WebRequestMode.POST, discordWebhook);
+   request.AddHeader('Content-Type', 'multipart/form-data');
+   request.AddFile('file', 'screenshot.bmp');
+   request.Send();
+}
+
+//+------------------------------------------------------------------+
+//|                       Filter Notifications                        |
+//+------------------------------------------------------------------+
+bool FilterNotification(string symbol, ENUM_TRADE_EVENT event)
+{
+   // Apply user-defined filter logic here
+   return true;
+}
+
+//+------------------------------------------------------------------+
+//|                          Trading Events                            |
+//+------------------------------------------------------------------+
+void OnTradeEvent(const MqlTradeEvent& event)
+{
+   if (FilterNotification(event.symbol, event.event_type))
+   {
+      string message = '';
+      switch (event.event_type)
+      {
+         case TRADE_EVENT_ORDER_PLACED:
+            message = 'Order placed: ' + event.order;
+            break;
+         case TRADE_EVENT_ORDER_MODIFIED:
+            message = 'Order modified: ' + event.order;
+            break;
+         case TRADE_EVENT_ORDER_EXECUTED:
+            message = 'Order executed: ' + event.order;
+            break;
+         case TRADE_EVENT_ORDER_CLOSED:
+            message = 'Order closed: ' + event.order;
+            break;
+         // Add more event cases as desired
+      }
+      
+      SendNotification(message);
+      
+      if (sendScreenshot)
+         CaptureScreenshot();
+   }
+}
+
+//+------------------------------------------------------------------+
+//|                        Expert Advisor Settings                    |
+//+------------------------------------------------------------------+
+input bool EnableScreenshot = false;
+
+//+------------------------------------------------------------------+
+//|                    Expert Advisor Initialization                  |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   if (EnableScreenshot)
+      sendScreenshot = true;
+   
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//|                    Expert Advisor Deinitialization                |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   // Clean up resources if necessary
+}
+
+//+------------------------------------------------------------------+
+//|                    Expert Advisor Start                           |
+//+------------------------------------------------------------------+
+void OnStart()
+{
+   // Set Discord channel and webhook URL
+   SetDiscordChannel('your_discord_channel', 'your_discord_webhook_url');
+   
+   // Attach event handler
+   EventSetMillisecondTimer(500);
+   EventSetTimer(1);
+   EventSetTradeEvent(1);
+}
+
+//+------------------------------------------------------------------+
+//|                        Timer Event                               |
+//+------------------------------------------------------------------+
+void OnTimer()
+{
+   // Perform any necessary periodic tasks
+}
